@@ -1,6 +1,88 @@
 `default_nettype none
 `timescale 1ns/1ps
 
+module bitcell (
+  input wire clk,
+  input wire clken,
+  input wire reset,
+
+  input wire sel,
+  input wire d_in0,
+  input wire d_in1,
+  output reg d_out)
+);
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      d_out <= '0;
+    end
+    else begin
+      if (clken) begin
+        d_out <= sel ? d_in1 : d_in0;
+      end
+    end
+  end
+endmodule
+
+typedef enum {CELL_ZERO=2'b00, CELL_ONE=2'b01, CELL_REF=2'b10} t_cell_value;
+
+module timeframe_cell (
+  input wire clk,
+  input wire clken,
+  input wire reset,
+
+  input wire sel,
+  input t_cell_value d_in0,
+  input t_cell_value d_in1,
+  output t_cell_value d_out
+);
+
+  genvar i;
+  for (i = 0; i < 2; ++i) begin: cellgen
+    bitcell the_bit(
+      .clk (clk),
+      .clken (clken),
+      .reset (reset),
+      .sel (sel),
+      .d_in0 (d_in0[i]),
+      .d_in1 (d_in1[i]),
+      .d_out (d_out[i])
+  end
+endmodule
+
+module timeframe (
+  input wire clk,
+  input wire clken,
+  input wire reset,
+
+  input t_cell_value load_data[0:59],
+  input wire load,
+
+  output t_cell_value current
+);
+
+  // 60 timeframe_cells make up a timeframe.
+  // arbitrarily, element 0 is the "head" cell,
+  // giving the current second's cell value.
+  // cells are serially connected: cell0 takes cell1's
+  // output,  cell1 takes cell2's, ... up to cell 59 which
+  // takes cell0's output.
+  t_cell_value shift_data[0:59];
+  assign current = shift_data[0];
+  genvar i;
+  for (i = 0; i < 60; ++i) begin
+    timeframe_cell the_cell(
+      .clk (clk),
+      .clken (clken),
+      .reset (reset),
+      .sel (load),
+      .d_in0 (shift_data[i < 59 ? i + 1 : 0]),
+      .d_in1 (load_data[i]),
+      .d_out (shift_data[i])
+    );
+  end
+
+endmodule
+
 module carrier_clk_gen #(
   parameter CLK_PERIOD=100_000_000
 )
@@ -69,6 +151,29 @@ module wwvbtx #(
     .carrier_clk (carrier_clk)
   );
   // modulation
+  //   In each second, power is reduced, and then restored after 200,
+  //   500 or 800ms.
+  //     0bit: power restored after 200ms
+  //     1bit: power restored after 500ms
+  //     refbit: power restored after 800ms
+  //   A particular second's action is stored in a
+  //   A time frame is stored in 60 storage cells, which can be shifted
+  //   serially or loaded in parallel. The head of the shift chain is the
+  //   "current" second.
+  // some work to do here: fill in the various indices of load_data with
+  // constant values (for ref, position marker), or register values from the
+  // CSRs.
+  t_cell_value load_data[0:59];
+  timeframe the_timeframe(
+    .clk (clk),
+    .clken (clk_1Hz),
+    .reset (reset),
+
+    .load_data (load_data),
+    .load (load),
+
+    .current (current)
+  );
 
   // time-code frame: 60 bits, of which 42 are variable; the rest are frame
   // reference, position marker and reserved.
