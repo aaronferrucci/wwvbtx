@@ -143,7 +143,7 @@ module wwvbtx #(
 
   // mapping between variable time frame bits and
   // CSRs:
-  // time data can be grouped as 12 nibbles:
+  // time data can be grouped as 13 nibbles:
   // minutes_d1 (3 bits)
   // minutes_d0 (4 bits)
   // hours_d1 (2 bits)
@@ -158,6 +158,19 @@ module wwvbtx #(
   // year_d0 (4 bits)
   // leap_year (2 bits)
   // daylight_saving_time (2 bits)
+
+  // 'X': unused bit, set to 0
+  // '.': set to 0 or 1
+  //
+  // |       dayofyear       |     hours     |   minutes     |
+  // |   d2  |   d1  |   d0  |  d1   |  d0   |  d1   |  d0   |
+  // |3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|
+  // |X|X|.|.|.|.|.|.|.|.|.|.|X|X|.|.|.|.|.|.|X|X|.|.|.|.|.|.|
+
+  // |       |       |       |      year     |       |       |
+  // |       |u_sign |u_corr |  d1   |  d0   | leap  |  dst  |
+  // |3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|
+  // |X|X|X|X|X|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|X|X|.|.|X|X|.|.|
 
   // avalon write/read interface logic
 endmodule
