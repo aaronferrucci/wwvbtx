@@ -166,7 +166,68 @@ module wwvbtx #(
   // some work to do here: fill in the various indices of load_data with
   // constant values (for ref, position marker), or register values from the
   // CSRs.
-  t_cell_value load_data[0:59];
+  t_cell_value load_data[0:59] = {
+    CELL_REF,                        //  0  frame reference bit P_r
+    csr0[ 6] ? CELL_ONE : CELL_ZERO, //  1  minutes, 40
+    csr0[ 5] ? CELL_ONE : CELL_ZERO, //  2  minutes, 20
+    csr0[ 4] ? CELL_ONE : CELL_ZERO, //  3  minutes, 10
+    CELL_ZERO,                       //  4  reserved
+    csr0[ 3] ? CELL_ONE : CELL_ZERO, //  5  minutes, 8
+    csr0[ 2] ? CELL_ONE : CELL_ZERO, //  6  minutes, 4
+    csr0[ 1] ? CELL_ONE : CELL_ZERO, //  7  minutes, 2
+    csr0[ 0] ? CELL_ONE : CELL_ZERO, //  8  minutes, 1
+    CELL_REF ,                       //  9  position marker P_1
+    CELL_ZERO,                       // 10  reserved
+    CELL_ZERO,                       // 11  reserved
+    csr0[13] ? CELL_ONE : CELL_ZERO, // 12  hours, 20
+    csr0[12] ? CELL_ONE : CELL_ZERO, // 13  hours, 10
+    CELL_ZERO,                       // 14  reserved
+    csr0[11] ? CELL_ONE : CELL_ZERO, // 15  hours, 8
+    csr0[10] ? CELL_ONE : CELL_ZERO, // 16  hours, 4
+    csr0[ 9] ? CELL_ONE : CELL_ZERO, // 17  hours, 2
+    csr0[ 8] ? CELL_ONE : CELL_ZERO, // 18  hours, 1
+    CELL_REF ,                       // 19  position marker P_2
+    CELL_ZERO,                       // 20  reserved
+    CELL_ZERO,                       // 21  reserved
+    csr0[25] ? CELL_ONE : CELL_ZERO, // 22  day of year, 200
+    csr0[24] ? CELL_ONE : CELL_ZERO, // 23  day of year, 100
+    CELL_ZERO,                       // 24  reserved
+    csr0[23] ? CELL_ONE : CELL_ZERO, // 25  day of year, 80
+    csr0[22] ? CELL_ONE : CELL_ZERO, // 26  day of year, 40
+    csr0[21] ? CELL_ONE : CELL_ZERO, // 27  day of year, 20
+    csr0[20] ? CELL_ONE : CELL_ZERO, // 28  day of year, 10
+    CELL_REF ,                       // 29  position marker P_3
+    csr0[19] ? CELL_ONE : CELL_ZERO, // 30  day of year, 8
+    csr0[18] ? CELL_ONE : CELL_ZERO, // 31  day of year, 4
+    csr0[17] ? CELL_ONE : CELL_ZERO, // 32  day of year, 2
+    csr0[16] ? CELL_ONE : CELL_ZERO, // 33  day of year, 1
+    CELL_ZERO,                       // 34  reserved
+    CELL_ZERO,                       // 35  reserved
+    csr1[22] ? CELL_ONE : CELL_ZERO, // 36  UTIsign, +
+    csr1[21] ? CELL_ONE : CELL_ZERO, // 37  UTIsign, -
+    csr1[20] ? CELL_ONE : CELL_ZERO, // 38  UTIsign, +
+    CELL_REF ,                       // 39  position marker P_4
+    csr1[19] ? CELL_ONE : CELL_ZERO, // 40  UTI correction, 0.8s
+    csr1[18] ? CELL_ONE : CELL_ZERO, // 41  UTI correction, 0.4s
+    csr1[17] ? CELL_ONE : CELL_ZERO, // 42  UTI correction, 0.2s
+    csr1[16] ? CELL_ONE : CELL_ZERO, // 43  UTI correction, 0.1s
+    CELL_ZERO,                       // 44  reserved
+    csr1[15] ? CELL_ONE : CELL_ZERO, // 45  year, 80
+    csr1[14] ? CELL_ONE : CELL_ZERO, // 46  year, 40
+    csr1[13] ? CELL_ONE : CELL_ZERO, // 47  year, 20
+    csr1[12] ? CELL_ONE : CELL_ZERO, // 48  year, 10
+    CELL_REF ,                       // 49  position marker P_5
+    csr1[11] ? CELL_ONE : CELL_ZERO, // 50  year, 8
+    csr1[10] ? CELL_ONE : CELL_ZERO, // 51  year, 4
+    csr1[ 9] ? CELL_ONE : CELL_ZERO, // 52  year, 2
+    csr1[ 8] ? CELL_ONE : CELL_ZERO, // 53  year, 1
+    CELL_REF ,                       // 54  reserved
+    csr1[ 5] ? CELL_ONE : CELL_ZERO, // 55  leap year indicator
+    csr1[ 4] ? CELL_ONE : CELL_ZERO, // 56  leap second warning
+    csr1[ 1] ? CELL_ONE : CELL_ZERO, // 57  daylight saving time
+    csr1[ 0] ? CELL_ONE : CELL_ZERO, // 58  daylight saving time
+    CELL_REF                         // 59  frame reference bit P_0
+  };
   timeframe #(
       .RESET_VALUE({
         CELL_REF,  //  0  frame reference bit P_r
@@ -337,12 +398,20 @@ module wwvbtx #(
   // |       dayofyear       |     hours     |   minutes     |
   // |   d2  |   d1  |   d0  |  d1   |  d0   |  d1   |  d0   |
   // |3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|
-  // |X|X|.|.|.|.|.|.|.|.|.|.|X|X|.|.|.|.|.|.|X|X|.|.|.|.|.|.|
+  // |X|X|.|.|.|.|.|.|.|.|.|.|X|X|.|.|.|.|.|.|X|.|.|.|.|.|.|.|
+  // +-------------------------------------------------------+
+  // |2|2|2|2|2|2|2|2|1|1|1|1|1|1|1|1|1|1|0|0|0|0|0|0|0|0|0|0|
+  // |7|6|5|4|3|2|1|0|9|8|7|6|5|4|3|2|1|0|9|8|7|6|5|4|3|2|1|0|
+  reg [31:0] csr0;
 
   // |       |       |       |      year     |       |       |
   // |       |u_sign |u_corr |  d1   |  d0   | leap  |  dst  |
   // |3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|3|2|1|0|
   // |X|X|X|X|X|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|X|X|.|.|X|X|.|.|
+  // +-------------------------------------------------------+
+  // |2|2|2|2|2|2|2|2|1|1|1|1|1|1|1|1|1|1|0|0|0|0|0|0|0|0|0|0|
+  // |7|6|5|4|3|2|1|0|9|8|7|6|5|4|3|2|1|0|9|8|7|6|5|4|3|2|1|0|
+  reg [31:0] csr1;
 
   // avalon write/read interface logic
 endmodule
