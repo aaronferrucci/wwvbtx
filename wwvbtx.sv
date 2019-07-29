@@ -1,7 +1,8 @@
 `default_nettype none
 `timescale 1ns/1ps
 
-module bitcell (
+module bitcell #(parameter bit RESET_VALUE='0)
+(
   input wire clk,
   input wire clken,
   input wire reset,
@@ -13,7 +14,7 @@ module bitcell (
 );
   always @(posedge clk or posedge reset) begin
     if (reset) begin
-      d_out <= '0;
+      d_out <= RESET_VALUE;
     end
     else begin
       if (clken) begin
@@ -25,7 +26,8 @@ endmodule
 
 typedef enum {CELL_ZERO=2'b00, CELL_ONE=2'b01, CELL_REF=2'b10} t_cell_value;
 
-module timeframe_cell (
+module timeframe_cell #(parameter t_cell_value RESET_VALUE = CELL_REF)
+(
   input wire clk,
   input wire clken,
   input wire reset,
@@ -38,7 +40,7 @@ module timeframe_cell (
 
   genvar i;
   for (i = 0; i < 2; ++i) begin: cellgen
-    bitcell the_bit(
+    bitcell #(.RESET_VALUE(RESET_VALUE[i])) the_bit(
       .clk (clk),
       .clken (clken),
       .reset (reset),
@@ -49,7 +51,8 @@ module timeframe_cell (
   end
 endmodule
 
-module timeframe (
+module timeframe #(parameter t_cell_value RESET_VALUE[0:59])
+(
   input wire clk,
   input wire clken,
   input wire reset,
@@ -70,7 +73,7 @@ module timeframe (
   assign current = shift_data[0];
   genvar i;
   for (i = 0; i < 60; ++i) begin
-    timeframe_cell the_cell(
+    timeframe_cell #(.RESET_VALUE(RESET_VALUE[i])) the_cell(
       .clk (clk),
       .clken (clken),
       .reset (reset),
@@ -164,15 +167,79 @@ module wwvbtx #(
   // constant values (for ref, position marker), or register values from the
   // CSRs.
   t_cell_value load_data[0:59];
-  timeframe the_timeframe(
-    .clk (clk),
-    .clken (clk_1Hz),
-    .reset (reset),
+  timeframe #(
+      .RESET_VALUE({
+        CELL_REF,  //  0  frame reference bit P_r
+        CELL_ZERO, //  1  minutes, 40
+        CELL_ZERO, //  2  minutes, 20
+        CELL_ZERO, //  3  minutes, 10
+        CELL_ZERO, //  4  reserved
+        CELL_ZERO, //  5  minutes, 8
+        CELL_ZERO, //  6  minutes, 4
+        CELL_ZERO, //  7  minutes, 2
+        CELL_ZERO, //  8  minutes, 1
+        CELL_REF , //  9  position marker P_1
+        CELL_ZERO, // 10  reserved
+        CELL_ZERO, // 11  reserved
+        CELL_ZERO, // 12  hours, 20
+        CELL_ZERO, // 13  hours, 10
+        CELL_ZERO, // 14  reserved
+        CELL_ZERO, // 15  hours, 8
+        CELL_ZERO, // 16  hours, 4
+        CELL_ZERO, // 17  hours, 2
+        CELL_ZERO, // 18  hours, 1
+        CELL_REF , // 19  position marker P_2
+        CELL_ZERO, // 20  reserved
+        CELL_ZERO, // 21  reserved
+        CELL_ZERO, // 22  day of year, 200
+        CELL_ZERO, // 23  day of year, 100
+        CELL_ZERO, // 24  reserved
+        CELL_ZERO, // 25  day of year, 80
+        CELL_ZERO, // 26  day of year, 40
+        CELL_ZERO, // 27  day of year, 20
+        CELL_ZERO, // 28  day of year, 10
+        CELL_REF , // 29  position marker P_3
+        CELL_ZERO, // 30  day of year, 8
+        CELL_ZERO, // 31  day of year, 4
+        CELL_ZERO, // 32  day of year, 2
+        CELL_ZERO, // 33  day of year, 1
+        CELL_ZERO, // 34  reserved
+        CELL_ZERO, // 35  reserved
+        CELL_ZERO, // 36  UTIsign, +
+        CELL_ZERO, // 37  UTIsign, -
+        CELL_ZERO, // 38  UTIsign, +
+        CELL_REF , // 39  position marker P_4
+        CELL_ZERO, // 40  UTI correction, 0.8s
+        CELL_ZERO, // 41  UTI correction, 0.4s
+        CELL_ZERO, // 42  UTI correction, 0.2s
+        CELL_ZERO, // 43  UTI correction, 0.1s
+        CELL_ZERO, // 44  reserved
+        CELL_ZERO, // 45  year, 80
+        CELL_ZERO, // 46  year, 40
+        CELL_ZERO, // 47  year, 20
+        CELL_ZERO, // 48  year, 10
+        CELL_REF , // 49  position marker P_5
+        CELL_ZERO, // 50  year, 8
+        CELL_ZERO, // 51  year, 4
+        CELL_ZERO, // 52  year, 2
+        CELL_ZERO, // 53  year, 1
+        CELL_ZERO, // 54  reserved
+        CELL_ZERO, // 55  leap year indicator
+        CELL_ZERO, // 56  leap second warning
+        CELL_ZERO, // 57  daylight saving time
+        CELL_ZERO, // 58  daylight saving time
+        CELL_REF   // 59  frame reference bit P_0
+      })
+    )
+    the_timeframe(
+      .clk (clk),
+      .clken (clk_1Hz),
+      .reset (reset),
 
-    .load_data (load_data),
-    .load (load),
+      .load_data (load_data),
+      .load (load),
 
-    .current (current)
+      .current (current)
   );
 
   // time-code frame: 60 bits, of which 42 are variable; the rest are frame
