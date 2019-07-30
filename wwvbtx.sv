@@ -93,6 +93,8 @@ module carrier_clk_gen #(
   input wire clk,
   input wire reset,
 
+  output reg hb_1Hz,
+  output reg hb_10Hz,
   output reg carrier_clk
 
 );
@@ -105,22 +107,61 @@ module carrier_clk_gen #(
   localparam CARRIER_CLK_HALF_PERIOD = CARRIER_CLK_PERIOD / 2;
   localparam CARRIER_COUNTER_WIDTH = $clog2(CARRIER_CLK_HALF_PERIOD);
   reg [CARRIER_COUNTER_WIDTH - 1 : 0] carrier_clk_counter = '0;
+  // "100kHz heartbeat": a 1-cycle pulse at the start of each 10us period.
+  localparam HB_COUNTER1_WIDTH = $clog2(100_000);
+  localparam HB_COUNTER10_WIDTH = $clog2(100_000);
+  reg [HB_COUNTER_WIDTH1 - 1:0] hb_counter1;
+  reg [HB_COUNTER_WIDTH10 - 1:0] hb_counter10;
+  reg hb_100kHz;
 
   always @(posedge clk or posedge reset) begin
     if (reset) begin
       carrier_clk <= '0;
       carrier_clk_counter <= '0;
+      hb_100kHz <= '0;
     end
     else begin
-      if (carrier_clk_counter >= CARRIER_CLK_HALF_PERIOD - 1) begin
+      if (carrier_clk_counter == CARRIER_CLK_HALF_PERIOD - 1) begin
         carrier_clk_counter <= '0;
         carrier_clk <= ~carrier_clk;
+        hb_100kHz <= '1;
       end
       else begin
         carrier_clk_counter <= carrier_clk_counter + 1'b1;
+        hb_100kHz <= '0;
       end
     end
   end
+
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      hb_counter1 <= '0;
+      hb_counter10 <= '0;
+      hb_1Hz <= '0;
+      hb_10Hz <= '0;
+    end
+    else begin
+      if (hb_100kHz) begin
+        if (hb_counter1 == HB_COUNTER_WIDTH1'd100_000 - 1) begin
+          hb_counter1 <= '0;
+          hb_1Hz <= '1;
+        end
+        else begin
+          hb_counter1 <= hb_counter1 + 1'b1;
+          hb_1Hz <= '0;
+        end
+        if (hb_counter10 == HB_COUNTER_WIDTH10'd10_000 - 1) begin
+          hb_counter10 <= '0;
+          hb_10Hz <= '1;
+        end
+        else begin
+          hb_counter10 <= hb_counter10 + 1'b1;
+          hb_10Hz <= '0;
+        end
+      end
+    end
+  end
+
 endmodule
 
 module wwvbtx #(
@@ -146,13 +187,17 @@ module wwvbtx #(
 
   // ref: https://tf.nist.gov/general/pdf/1383.pdf
 
-  // Carrier frequency generation
+  // Carrier frequency generation, heartbeats
   wire carrier_clk;
+  wire hb_1Hz, hb_10Hz;
   carrier_clk_gen the_carrier_clk(
     .clk (clk),
     .reset (reset),
+    .hb_1Hz (hb_1Hz,
+    .hb_10Hz (hb_10Hz,
     .carrier_clk (carrier_clk)
   );
+
   // modulation
   //   In each second, power is reduced, and then restored after 200,
   //   500 or 800ms.
